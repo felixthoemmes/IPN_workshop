@@ -1,0 +1,123 @@
+---
+title: "Exercise 3"
+output: pdf_document
+---
+
+
+This third example explores the use of statistical adjustment using a parametric model, but introduces some applied complications. We will explore what happens when we misspecify a parametric model, or when the area of common support is small. Again, we always assume that the given covariates fulfill ignorability.
+
+Here is a worked-out, and commented example of using a parametric model and emmeans, for adjustment. 
+I am also demonstrating a quick model check, a re-specification of the model, and the convex hull. 
+The data is simulated, and if you like you can ignore the simulation code. It is provided here for the sole reasons that you can reproduce the example quickly without having to download data files. 
+
+```{r, message=FALSE, warning=FALSE}
+####simulation code##########################
+set.seed(123456)
+n <- 500
+u <- rnorm(n,0,1)
+x1 <- .9*u + rnorm(n,2,.6)
+x2 <- .9*u + rnorm(n,2,.6)
+p <- (1/(1+exp(-.5+.1*x1+.3*I(x1^2))))
+t <- rbinom(n,1,p)
+y <- .5*t - .9*x1 - .9*x2 + .3*I(x1^2) - .3*I(x2^2) + .4*t*x1 - .3*t*x2 + .3*t*I(x1^2) + rnorm(n,0,.2)
+t <- factor(t)
+dfex3 <- data.frame(x1,x2,t,y)
+dfex3$t <- factor(dfex3$t)
+############################################
+
+####analysis code###########################
+library(emmeans)
+library(WhatIf)
+#unadjusted effect
+lm.u <- lm(y~t,dfex3)
+summary(lm.u)
+summary(emmeans(lm.u,"t",contr="pairwise",weights="proportional"),infer=TRUE)
+```
+
+In a first step, I am looking at the unadjusted model again - the prima facie effect, using summary and emmeans. Again, I recommend you focus on the latter. 
+
+We now repeat the same exercise again, adjust on all observed covariates, and re-estimate the model. 
+
+
+```{r}
+#linear adjustment with plot
+lm.a1 <- lm(y~t+x1+x2,dfex3)
+summary(lm.a1)
+plot(lm.a1,which = 1)
+summary(emmeans(lm.a1,"t",contr="pairwise",weights="proportional"),infer=TRUE)
+```
+We can see in the residual plot that the model is misspecified. Here, I already know the functional form (because I simulated the data). In a real, applied settting, I might either have some theory that guide me to the functional form, or I need to try several models, and check residuals several times. 
+
+```{r}
+#non-linear adjustment
+lm.a <- lm(y~t+x1+x2+I(x1^2) + I(x2^2) + x1:t + t:x2 + t:I(x1^2),dfex3)
+summary(lm.a)
+plot(lm.a,which=1)
+summary(emmeans(lm.a,"t",contr="pairwise",weights="proportional"),infer=TRUE)
+```
+
+We see that the more complex model has well-behaved residuals, and also the treatment effect is quite different. This can happen with different parametric models. 
+
+Finally, I restrict the model to the convex hull. I am selecting only units that fall within the complete overlap on all covariates. This restricts the sample quite a bit. For demonstration purposes, I also re-run both the purely linear, and the complex parametric model. 
+
+```{r, message=FALSE, warning=FALSE, eval=FALSE}
+#model within the convex hull
+library(WhatIf)
+treated <- dfex3[dfex3$t==1,]
+control <- dfex3[dfex3$t==0,]
+wf1 <- whatif(~x1+x2,treated,control,mc.cores = 1)
+wf2 <- whatif(~x1+x2,control,treated,mc.cores = 1)
+```
+
+```{r, echo=FALSE, eval=TRUE, results=FALSE}
+#model within the convex hull
+library(WhatIf)
+treated <- dfex3[dfex3$t==1,]
+control <- dfex3[dfex3$t==0,]
+wf1 <- whatif(~x1+x2,treated,control,mc.cores = 1)
+wf2 <- whatif(~x1+x2,control,treated,mc.cores = 1)
+```
+
+```{r}
+#hull
+table(wf1$in.hull)
+table(wf2$in.hull)
+
+treated$hull <- wf2$in.hull
+control$hull <- wf1$in.hull
+
+combined <- rbind(treated,control)
+combined <- combined[combined$hull==TRUE,]
+
+lm.a1hull <- lm(y~t+x1+x2,combined)
+summary(lm.a1hull)
+plot(lm.a1hull,which = 1)
+summary(emmeans(lm.a1hull,"t",contr="pairwise",weights="proportional"),infer=TRUE)
+
+lm.ahull <- lm(y~t+x1+x2+I(x1^2) + I(x2^2) + x1:t + t:x2 + t:I(x1^2),combined)
+summary(lm.ahull)
+plot(lm.ahull,which = 1)
+summary(emmeans(lm.ahull,"t",contr="pairwise",weights="proportional"),infer=TRUE)
+```
+
+What we see is that the treatment effect (while not as good as the correct parametric model on all units) is more consistent across different model specifications. 
+
+Exercise:
+
+1.) Download the file dfex3a from github (https://raw.githubusercontent.com/felixthoemmes/IPN_workshop/master/dfex3a.csv). You can download this file directly into R (no need to navigate to github in a browser, using the following code snippet:
+
+```{r, echo=TRUE, eval=FALSE}
+library(readr)
+dfex3a <- read_csv("https://raw.githubusercontent.com/felixthoemmes/IPN_workshop/master/dfex3a.csv")
+```
+
+
+The file contains a treatment t, an outcome y, and covariates x1-x4. We assume that these variables are those that fulfill the back-door criterion. Obtain an unadjusted estimate for the effect of t on y, using the emmean statement, and interpret the results. 
+
+2.) Now use a *linear* parametric model for adjustment, using covariates x1-x4. Obtain the adjusted treatment effect, and compare it to the unadjusted estimate. 
+
+3.) Check the residuals of the linear model, and comment on them. 
+
+4.) Try to expand your model, and keep checking residuals, until you find a parametric model that seems to fit well. Once you have this model, report the treatment effect estimate using emmeans, and compare it to the estimate for the previous model. 
+
+5.) Now construct the convex hull, and restrict your sample to it. Then run both the linear and complex parametric model, and compare estimates. 

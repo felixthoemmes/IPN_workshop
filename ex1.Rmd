@@ -1,0 +1,111 @@
+---
+title: "Exercise 1"
+output: pdf_document
+---
+
+
+This first example gives you a short introduction to the back-door criterion and how to use it in R
+We begin by loading necessary packages - if you don't have them, install them now.
+
+
+```{r, message=FALSE, warning=FALSE}
+library(ggdag)
+library(dagitty)
+```
+
+We will define a DAG using the dagitty command. The reason why we need a long statement in quotation marks is that 
+the dagitty command actually takes a dag statement from the dagitty website (http://www.dagitty.net).
+For this example, I created the graph in dagitty, and then I just copied and pasted the model code into Rstudio.
+I did not type out this whole graph below. If you had to, it works as follows:
+- every variable is on a single line - the pos argument is optional, but allows you to control the position of each node
+- arrows between variables are simply done by typing two variables and putting an arrow between them
+
+```{r}
+dag1 <- dagitty('dag {
+             Coach [pos="-4.392,-7.906"]
+             ConnectiveTissueDisorder [pos="3.494,-5.099"]
+             ContactSport [pos="-1.157,2.548"]
+             FitnessLevel [pos="-1.489,-4.530"]
+             Genetics [pos="2.022,-7.906"]
+             Injury [outcome,pos="4.969,8.605"]
+             IntraGameProprioception [pos="-1.196,8.487"]
+             NeuromuscularFatigue [pos="1.501,-1.235"]
+             PreGameProprioception [pos="-3.638,-1.235"]
+             PreviousInjury [pos="-4.293,4.175"]
+             TeamMotivation [pos="-7.175,-0.950"]
+             TissueWeakness [pos="4.236,1.857"]
+             WarmUpExercises [exposure,pos="-7.000,8.650"]
+             Coach -> FitnessLevel
+             Coach -> TeamMotivation
+             ConnectiveTissueDisorder -> NeuromuscularFatigue
+             ConnectiveTissueDisorder -> TissueWeakness
+             ContactSport -> IntraGameProprioception
+             ContactSport -> PreviousInjury
+             FitnessLevel -> NeuromuscularFatigue
+             FitnessLevel -> PreGameProprioception
+             Genetics -> ConnectiveTissueDisorder
+             Genetics -> FitnessLevel
+             Genetics -> NeuromuscularFatigue
+             IntraGameProprioception -> Injury
+             NeuromuscularFatigue -> Injury
+             NeuromuscularFatigue -> IntraGameProprioception
+             PreGameProprioception -> WarmUpExercises
+             TeamMotivation -> PreviousInjury
+             TeamMotivation -> WarmUpExercises
+             TissueWeakness -> Injury
+             WarmUpExercises -> IntraGameProprioception
+             }')
+```
+
+
+The ggdag package allows plotting of the model, and also of adjustment sets that are identified using the back-door criterion. Because the model is large, and there are many sets, the adjustment set display is not very helpful in this case. 
+
+
+```{r}
+ggdag(dag1,text_size = 3,text_col = "orange")
+ggdag_adjustment_set(dag1, text_size = 3, text_col = "black")
+```
+
+
+The adjustmentSets command, simply lists the adjustment sets. 
+
+```{r}
+adjustmentSets(dag1)
+```
+
+
+
+Exercise: 
+
+1.) Using the daggity language, create the following DAG in R.
+
+2.) Using the ggdag package, plot the DAG that you just created. 
+
+
+
+```{r, echo=FALSE}
+dag2 <- dagitty('dag {
+A [pos="-2.200,-1.520"]
+B [pos="1.400,-1.460"]
+D [outcome,pos="1.400,1.621"]
+E [exposure,pos="-2.200,1.597"]
+Z [pos="-0.300,-0.082"]
+A -> E
+A -> Z
+B -> D
+B -> Z
+E -> D
+Z -> D
+Z -> E
+}
+')
+
+ggdag(dag2,text_size = 3,text_col = "orange")
+```
+
+
+3.) Use the back-door criterion by hand to find an adjustment set for the causal effect of E on D. 
+
+4.) Confirm this set by using the adjustmentSets command. 
+
+

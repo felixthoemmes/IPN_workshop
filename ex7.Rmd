@@ -1,0 +1,85 @@
+---
+title: "Exercise 7"
+output: pdf_document
+---
+
+This seventh exercise is an add-on that quickly explores instrumental variables, and mechanisms. No special file needs to be downloaded. We are just simulating some data on the fly, and you can reproduce the analyses if you wish. 
+
+I am first simulating data from the following simple model, that contains both an IV, and a mechanism. Both of them can be used to recover the true effect, in the presence of unobserved confounding. 
+
+
+```{r, message=FALSE, warning=FALSE}
+library(ggdag)
+library(dagitty)
+library(emmeans)
+library(lavaan)
+library(AER)
+
+dag7 <- dagitty('dag {
+bb="0,0,1,1"
+IV [pos="0.116,0.784"]
+M [pos="0.477,0.790"]
+U1 [latent,pos="0.484,0.453"]
+X [exposure,pos="0.301,0.788"]
+Y [outcome,pos="0.699,0.778"]
+IV -> X
+M -> Y
+U1 -> X
+U1 -> Y
+X -> M
+}')
+
+ggdag(dag7)
+```
+
+
+```{r, message=FALSE, warning=FALSE}
+####simulation code##########################
+set.seed(12345)
+n <- 300
+u1 <- rnorm(n,5,1)
+iv <- rnorm(n,1,5)
+x <- .9*u1 + .5*iv + rnorm(n,2,.2)
+m <- .2*x + rnorm(n,0,.5)
+y <- .9*u1 - .5*m + rnorm(n,0,.5)
+
+dfex7 <- data.frame(iv,x,m,y)
+############################################
+
+####analysis code###########################
+#unadjusted model
+lm.u <- lm(y~x)
+summary(lm.u)
+```
+
+The unadjusted model yields an effect that is close to zero, which is biased. I will first present some code that uses the IV (using a SEM). I will contrast this code with the (more common) two-stage-least-squares results. 
+
+```{r}
+mymodel <- 'y ~ x
+            x ~ iv
+            x ~~ y'
+
+fit1 <- sem(mymodel,data=dfex7)
+summary(fit1)
+```
+
+```{r}
+summary(ivreg(y~x | iv, data=dfex7))
+```
+The SEM and the two-stage-least-squares model are identical (up to the second digit), and both indicate a small, negative treatment effect. 
+
+```{r}
+mymodel <- 'y ~ a*m
+            m ~ b*x
+            x ~~ y
+            te := a*b'
+
+fit2 <- sem(mymodel,data=dfex7)
+summary(fit2)
+```
+
+The causal effect that is estimated through the mechanism, is also small and negative, and quite similar to the one that we estimated with the IV model. Both models identify the same causal effect, but using different methods.
+
+Exercise:
+
+1.) Try to think of some examples in your own field, where you could use an IV or a mechanism. Try to convince the person next to you why the untestable assumptions of either model may be satisfied. 

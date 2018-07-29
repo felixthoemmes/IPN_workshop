@@ -1,0 +1,85 @@
+---
+title: "Exercise 6"
+output: pdf_document
+---
+
+This sixth exercise is what could be called your capstone project. Here, you will be given a dataset, and you are asked to repeat all the techniques that we have learned, starting from identifying an admissable adjustment set, all the way to estimating an effect. You will be given no code, and your only "back-story" is encoded in the DAG. You can use the old exercise sets to copy and paste code as needed. 
+
+
+1.) Download the file dfex6  from github (https://raw.githubusercontent.com/felixthoemmes/IPN_workshop/master/dfex6.csv). 
+
+```{r, echo=TRUE, eval=FALSE}
+library(readr)
+dfex6 <- read_csv("https://raw.githubusercontent.com/felixthoemmes/IPN_workshop/master/dfex6.csv")
+```
+The file contains a treatment t, an outcome y, and covariates x1-x9. Assume for this exercise that our best theory, and assumptions can be encoded in the following DAG:
+
+```{r, message=FALSE, warning=FALSE}
+library(dagitty)
+library(ggdag)
+
+dag6 <- dagitty('dag {
+  T [exposure,pos="-2.200,-1.597"]
+  Y [outcome,pos="1.400,-1.621"]
+  u1 [latent,pos="-1.781,1.636"]
+  x1 [pos="-1.908,-0.111"]
+  x2 [pos="-0.989,0.092"]
+  x3 [pos="-0.431,-0.916"]
+  x4 [pos="1.391,-0.691"]
+  x5 [pos="1.261,0.174"]
+  x6 [pos="-0.186,1.647"]
+  x7 [pos="-2.206,1.340"]
+  x8 [pos="0.840,1.143"]
+  x9 [pos="0.851,0.609"]
+  T -> Y
+  T -> x3
+  T -> x4
+  T -> x5
+  Y -> x4
+  u1 -> x1
+  u1 -> x2
+  u1 -> x4
+  u1 -> x5
+  u1 -> x6
+  u1 -> x7
+  u1 -> x8
+  u1 -> x9
+  x1 -> T
+  x1 -> Y
+  x1 -> x2
+  x2 -> T
+  x2 -> Y
+  x2 -> x5
+  x2 -> x9
+  x3 -> Y
+  x6 -> T
+  x6 -> x3
+  x6 -> x8
+  x6 -> x9
+  x7 -> T
+  x7 -> x1
+  x7 -> x2
+  x7 -> x9
+  x8 -> T
+  x8 -> x5
+  x9 -> Y
+}')
+
+
+ggdag(dag6)
+```
+
+I am pasting the whole Daggity code here, so that you can easily copy and paste it. 
+
+1.) Find an admissable adjustment set.
+
+2.) Estimate an unadjusted treatment effect. 
+
+3.) Estimate an adjusted treatment effect, using ALL methods that we have discussed in this workshop. Carefully probe all assumptions. In particular this means:
+
+- you should use regression adjustment with residual checks. 
+
+- you should use Matching with balance checks. 
+
+- you should use IPTW with weight inspections. 
+

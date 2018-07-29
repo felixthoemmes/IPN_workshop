@@ -1,0 +1,106 @@
+---
+title: "Exercise 4"
+output: pdf_document
+---
+
+
+This fourth example explores the use of matching estimators, in particular, propensity score matching. 
+
+Here is a worked-out, and commented example of using MatchIt to perform PS Matching. Because the resulting outcome model is so simple, I am using a t-test. We could also use emmeans (in conjunction with a parametric model), but t-test works here.  
+I am also demonstrating a matching model checks. 
+
+The data is simulated, and if you like you can ignore the simulation code. It is provided here for the sole reasons that you can reproduce the example quickly without having to download data files. 
+
+```{r, message=FALSE, warning=FALSE}
+####simulation code##########################
+set.seed(123)
+n <- 120
+u <- rnorm(n,0,1)
+x1 <- .9*u + rnorm(n,2,.6)
+x2 <- .9*u + rnorm(n,2,.6)
+p <- (1/(1+exp(-.5+.1*x1+.5*x2)))
+t <- rbinom(n,1,p)
+y <- .5*t - .9*x1 - .9*x2 + .3*I(x1^2) - .3*I(x2^2) + .4*t*x1 - .3*t*x2 + .3*t*I(x1^2) + rnorm(n,0,.2)
+t <- factor(t)
+dfex4 <- data.frame(x1,x2,t,y)
+dfex4$t <- factor(dfex4$t)
+
+############################################
+
+####analysis code###########################
+library(MatchIt)
+#here I am recoding the factor as numeric, because MatchIt seems to sometimes have issues with factors
+dfex4$tn <- as.numeric(dfex4$t) -1
+
+#this is the definition of the ps model
+#first, we define which covariates predict the treatment using a simple R formula
+#with method, we define the type of matching, e.g., nearest neighor
+#we define other parameters, like caliper, and whether units to discard
+#with distance we define a logistic regression model to estimate the PS
+m1 <- matchit(tn~x1+x2, method="nearest", distance="logit", caliper = .2, discard="none", data=dfex4)
+
+#Here we have summaries and plots
+#the summary provides sample sizes, and standardized mean difference before and after matching
+summary(m1,standardize = TRUE,interactions = TRUE)
+#these are diagnostic plots, that check whether the distributions of the covariates are equal
+plot(m1,type="QQ")
+plot(m1,type="jitter")
+plot(m1,type="hist")
+plot(summary(m1,standardize = TRUE))
+
+#the data extraction returns by default a long datafile
+md1 <-match.data(m1)
+
+#if we want a matched datafile this ratehr complicated self-written function will do it
+get_treated_df = function(m, out_matched_cases_only = F) {
+  is.na(m$match.matrix)[m$match.matrix=='-1'] = T
+  df = m$model$data[rownames(m$match.matrix),]
+  df$matched_id = rownames(m$match.matrix)
+  df$matched_cases_in_control = apply(m$match.matrix,1, function(row) sum(!is.na(row)))
+  if(out_matched_cases_only) {
+    return(df[apply(m$match.matrix, 1, function(row) any(!is.na(row))),])
+  } else {
+    return(df)
+  }  
+}
+get_controlled_df = function(m, out_matched_cases_only=F) {
+  is.na(m$match.matrix)[m$match.matrix=='-1'] = T
+  apply(m$match.matrix, 2, function(rowname) {     
+    df = m$mode$data[rowname,]
+    df$matched_id = rownames(m$match.matrix)
+    df$matched_cases_in_control = apply(m$match.matrix,1, function(row) sum(!is.na(row)))
+    
+    if(out_matched_cases_only) {
+      return(df[apply(df, 1, function(row) all(!is.na(row))),])
+    } else {
+      return(df)
+    }
+  })
+}
+
+data_matched = cbind(get_treated_df(m1), get_controlled_df(m1)[[1]])
+
+#Finally, we do a simple t-test to estiamte our treatment effect
+t.test(data_matched[,4],data_matched[,11],paired = TRUE)
+
+```
+
+We see summary statistics before and after matching. Of special interest is the column on standardized mean differences. The plots (QQ,histogram,lineplot) all try to answer the question of whether balance was achieved. 
+
+By default, MatchIt returns a long dataframe, but we have a function that returns a wide dataframe (for dependent samples analyses). The last step is a simple t-test (we could have used emmeans, but it's not really necessary). 
+
+Exercise:
+
+1.) Download the file dfex3a again from github (https://raw.githubusercontent.com/felixthoemmes/IPN_workshop/master/dfex3a.csv). You can download this file directly into R (no need to navigate to github in a browser, using the following code snippet:
+
+```{r, echo=TRUE, eval=FALSE}
+library(readr)
+dfex3a <- read_csv("https://raw.githubusercontent.com/felixthoemmes/IPN_workshop/master/dfex3a.csv")
+```
+
+
+The file contains a treatment t, an outcome y, and covariates x1-x4. We assume that these variables are those that fulfill the back-door criterion. Obtain an *unadjusted* estimate for the effect of t on y. 
+
+2.) First, run a simple model (all linear terms) and carefully check balance. If you are unhappy with the balance, respecify the model, and check balance until it is achieved. Produce all plots that we discussed. 
+
+3.) Extract the wide dataset, and use a dependent samples t-test to estimate the effect.
